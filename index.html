@@ -387,7 +387,7 @@
       { start: 16.0, end: 22.0, text: "大地を なす『土素』が 芽生えた…", say: "大地をなす、どそが、芽生えた。", se: () => audio.playEarthSE(), sePlayed: false, type: "earth" },
       { start: 22.0, end: 28.0, text: "三大元素が 合わさり 『いのち』が 誕生した！", say: "さんだいげんそが、合わさり、いのちが、誕生した！", se: () => { audio.playFusionSE(); setTimeout(() => audio.playLifeFanfareSE(), 600); }, sePlayed: false, type: "fusion" },
       { start: 28.0, end: 33.0, text: "いのちは 輝き  世界は 光に 包まれた", say: "いのちは輝き、世界は、光に、包まれた。", sePlayed: false, type: "epilogue" },
-      // 結び：光が画面いっぱいに広がり、「ありがとうございました」の画面で静かに終わる
+      // 結び：光が画面いっぱいに広がり、「ご視聴ありがとうございました」の画面で静かに終わる
       { start: 33.0, end: 40.0, text: "", say: "", se: () => { audio.stopBGM(); setTimeout(() => audio.playEndingSE(), 300); }, sePlayed: false, type: "end" }
     ];
     // 読み上げにかかるおよその秒数（文字がこの速さで出る）
@@ -686,7 +686,7 @@
         drawDQWindow(10, 175, 300, 55, currentScene.text);
       }
 
-      // 6. 画面が光に包まれ（33s〜）、「ありがとうございました」の画面になる（35.5s〜）
+      // 6. 画面が光に包まれ（33s〜）、「ご視聴ありがとうございました」の画面になる（35.5s〜）
       if (currentTime >= 33.0) {
         ctx.globalAlpha = Math.min(1, (currentTime - 33.0) / 2);
         ctx.fillStyle = '#fff8e0';
@@ -718,7 +718,7 @@
         ctx.globalAlpha = Math.min(1, Math.max(0, (currentTime - 36.8) / 1.2));
         ctx.fillStyle = '#ffffff';
         ctx.font = '14px "DotGothic16", monospace';
-        ctx.fillText('ありがとうございました', 160, 160);
+        ctx.fillText('ご視聴ありがとうございました', 160, 160);
         ctx.globalAlpha = 1.0;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
