@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="三大元素2">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f0f1b">
+  <link rel="apple-touch-icon" href="icon-180.png?v=1">
+  <link rel="manifest" href="sandai.webmanifest?v=1">
+  <link rel="icon" href="icon-180.png?v=1">
+  <title>三大元素といのち 2</title>
+  <!-- Tailwind CSS for Responsive Layout -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- DotGothic16 (Dragon Quest style Pixel Font) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'DotGothic16', monospace, sans-serif;
+      background-color: #0f0f1b;
+      color: #ffffff;
+      user-select: none;
+    }
+
+    /* Crisp Pixel Art Rendering */
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Retro Dragon Quest Frame Border Style */
+    .dq-window {
+      background-color: #000000;
+      border: 4px solid #ffffff;
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 2px #000000, 0 8px 20px rgba(0,0,0,0.8);
+      position: relative;
+    }
+
+    /* Custom Scrollbar & Utility */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4" style="padding-top:calc(8px + env(safe-area-inset-top));padding-bottom:calc(8px + env(safe-area-inset-bottom))">
+
+  <!-- Main Container -->
+  <div class="w-full max-w-3xl flex flex-col items-center space-y-4">
+
+    <!-- Header Title -->
+    <header class="text-center my-1">
+      <h1 class="text-xl sm:text-3xl font-bold tracking-widest text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+        三大元素と いのち
+      </h1>
+      <p class="text-xs sm:text-sm text-gray-400 mt-1">
+        火素 ・ 水素 ・ 土素 ― 8bit Retro Dot-Art Timeline (~30s)
+      </p>
+    </header>
+
+    <!-- Canvas Screen Wrapper -->
+    <div class="relative w-full aspect-[4/3] bg-black dq-window overflow-hidden flex items-center justify-center">
+      
+      <!-- HTML5 Canvas (Logical resolution 320x240, scaled automatically) -->
+      <canvas id="gameCanvas" width="320" height="240" class="w-full h-full block"></canvas>
+
+      <!-- Start Overlay (To unlock Web Audio API) -->
+      <div id="startOverlay" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 z-20 transition-opacity duration-500">
+        <div class="dq-window p-6 text-center max-w-xs sm:max-w-sm">
+          <div class="text-amber-400 text-lg mb-3 animate-pulse">⚔️ 冒険の始まり ⚔️</div>
+          <p class="text-xs sm:text-sm leading-relaxed mb-6 text-gray-200">
+            サウンド付きで約30秒の8bitアニメーションを再生します。
+          </p>
+          <button id="startButton" class="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 px-6 rounded border-2 border-white shadow-lg active:translate-y-1 transition text-sm sm:text-base">
+            ▶ アニメーションを開始
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Retro Interactive Controls Panel -->
+    <div class="w-full dq-window p-3 sm:p-4 flex flex-col space-y-3 text-xs sm:text-sm">
+      
+      <!-- Progress Bar & Time Display -->
+      <div class="flex items-center space-x-3">
+        <span id="currentTimeText" class="text-amber-300 w-12 text-right">00:00</span>
+        <input type="range" id="seekBar" min="0" max="32" step="0.1" value="0"
+               class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-amber-400">
+        <span id="totalTimeText" class="text-gray-400 w-12">00:32</span>
+      </div>
+
+      <!-- Action Buttons Row -->
+      <div class="flex items-center justify-between flex-wrap gap-2 pt-1">
+        
+        <div class="flex items-center space-x-2">
+          <button id="playPauseBtn" class="bg-gray-800 hover:bg-gray-700 text-amber-300 border border-gray-500 px-3 py-1.5 rounded active:scale-95 transition">
+            ⏸ 一時停止
+          </button>
+          <button id="restartBtn" class="bg-gray-800 hover:bg-gray-700 text-white border border-gray-500 px-3 py-1.5 rounded active:scale-95 transition">
+            🔄 最初から
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button id="soundToggleBtn" class="bg-gray-800 hover:bg-gray-700 text-emerald-400 border border-gray-500 px-3 py-1.5 rounded active:scale-95 transition">
+            🔊 BGM/SE: ON
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Description & Element Legend -->
+    <footer class="w-full text-center text-xs text-gray-500 space-y-1">
+      <p>火 (Fire) ＋ 水 (Water) ＋ 土 (Earth) ＝ 生命の誕生 (Life)</p>
+      <p>© 三大元素と いのち - 8bit Retro Animation Engine</p>
+    </footer>
+
+  </div>
+
+  <!-- JavaScript Implementation -->
+  <script>
+    /**
+     * 8-Bit Web Audio API Sound System
+     * Synthesizes Chiptune BGM and Retro Sound Effects dynamically
+     */
+    class RetroAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+        this.bgmTimer = null;
+        this.currentStep = 0;
+        this.tempo = 84; // BPM (Slow, relaxing retro pace)
+        
+        // Pentatonic / Retro RPG Harmonious Scale (Frequencies)
+        this.notes = {
+          'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
+          'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+          'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77,
+          'C6': 1046.50
+        };
+
+        // BGM Melody Grid (Square synth lead)
+        this.bgmMelody = [
+          'E4', null, 'G4', 'A4', 'B4', null, 'G4', 'E4',
+          'D4', null, 'E4', 'G4', 'A4', null, 'G4', null,
+          'C5', null, 'B4', 'A4', 'G4', null, 'E4', 'G4',
+          'A4', null, 'B4', 'C5', 'B4', null, 'A4', null,
+          
+          'E5', null, 'D5', 'C5', 'B4', null, 'G4', 'A4',
+          'C5', null, 'B4', 'A4', 'G4', null, 'E4', null,
+          'F4', 'G4', 'A4', 'C5', 'B4', 'A4', 'G4', 'E4',
+          'D4', null, 'E4', 'G4', 'E4', null, null, null
+        ];
+
+        // BGM Bass Grid (Triangle waveform)
+        this.bgmBass = [
+          'E3', 'E3', 'E3', 'E3', 'C3', 'C3', 'C3', 'C3',
+          'D3', 'D3', 'D3', 'D3', 'G3', 'G3', 'G3', 'G3',
+          'A3', 'A3', 'A3', 'A3', 'E3', 'E3', 'E3', 'E3',
+          'F3', 'F3', 'F3', 'F3', 'G3', 'G3', 'G3', 'G3',
+
+          'C3', 'C3', 'C3', 'C3', 'E3', 'E3', 'E3', 'E3',
+          'A3', 'A3', 'A3', 'A3', 'E3', 'E3', 'E3', 'E3',
+          'F3', 'F3', 'F3', 'F3', 'G3', 'G3', 'G3', 'G3',
+          'E3', 'E3', 'E3', 'E3', 'E3', null, null, null
+        ];
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      // Play single synth pulse note
+      playNote(freq, type = 'square', duration = 0.15, volume = 0.08) {
+        if (this.isMuted || !this.ctx || !freq) return;
+
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+          gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+          console.warn("Audio Context play error", e);
+        }
+      }
+
+      // Start looping Chiptune BGM
+      startBGM() {
+        if (this.bgmTimer) clearInterval(this.bgmTimer);
+        const stepInterval = (60 / this.tempo / 2) * 1000; // 8th notes
+
+        this.bgmTimer = setInterval(() => {
+          if (!this.isMuted && this.ctx) {
+            // Play Lead Melody
+            const noteName = this.bgmMelody[this.currentStep % this.bgmMelody.length];
+            if (noteName && this.notes[noteName]) {
+              this.playNote(this.notes[noteName], 'square', 0.22, 0.05);
+            }
+
+            // Play Bass line
+            const bassName = this.bgmBass[this.currentStep % this.bgmBass.length];
+            if (bassName && this.notes[bassName]) {
+              this.playNote(this.notes[bassName], 'triangle', 0.28, 0.08);
+            }
+          }
+          this.currentStep++;
+        }, stepInterval);
+      }
+
+      stopBGM() {
+        if (this.bgmTimer) {
+          clearInterval(this.bgmTimer);
+          this.bgmTimer = null;
+        }
+      }
+
+      /* --- Sound Effects (SE) --- */
+
+      // DQ Text Dialogue Blip
+      playTextBlip() {
+        this.playNote(880, 'square', 0.03, 0.03);
+      }
+
+      // Fire Element SE (Crackle / Whoosh)
+      playFireSE() {
+        if (this.isMuted || !this.ctx) return;
+        try {
+          const bufferSize = this.ctx.sampleRate * 0.3;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1; // White noise
+          }
+
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+          filter.frequency.linearRampToValueAtTime(200, this.ctx.currentTime + 0.3);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          noise.start();
+        } catch(e){}
+      }
+
+      // Water Element SE (Bubble Plop Drop)
+      playWaterSE() {
+        if (this.isMuted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          
+          osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.15);
+
+          gain.gain.setValueAtTime(0.09, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.15);
+        } catch(e){}
+      }
+
+      // Earth Element SE (Low Crystal Rumble)
+      playEarthSE() {
+        if (this.isMuted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+
+          osc.frequency.setValueAtTime(90, this.ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(180, this.ctx.currentTime + 0.25);
+
+          gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.35);
+        } catch(e){}
+      }
+
+      // Elements Fusion Arpeggio SE
+      playFusionSE() {
+        if (this.isMuted || !this.ctx) return;
+        const scale = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
+        scale.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playNote(freq, 'square', 0.1, 0.06);
+          }, idx * 60);
+        });
+      }
+
+      // Grand Life Birth Fanfare SE
+      playLifeFanfareSE() {
+        if (this.isMuted || !this.ctx) return;
+        const fanfare = [
+          { f: 523.25, d: 0.15, delay: 0 },
+          { f: 659.25, d: 0.15, delay: 150 },
+          { f: 783.99, d: 0.15, delay: 300 },
+          { f: 1046.50, d: 0.60, delay: 450 }
+        ];
+        fanfare.forEach(item => {
+          setTimeout(() => {
+            this.playNote(item.f, 'triangle', item.d, 0.12);
+            this.playNote(item.f * 1.002, 'square', item.d, 0.05); // Detuned chorus
+          }, item.delay);
+        });
+      }
+    }
+
+    /* --- Animation & Canvas Engine --- */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    const audio = new RetroAudioEngine();
+
+    // App State
+    let currentTime = 0; // In seconds (0 to 32s)
+    const totalDuration = 32.0;
+    let isPlaying = false;
+    let lastFrameTime = performance.now();
+
+    // Scene Dialogue Timeline (~30s total)
+    const timelineData = [
+      { start: 0.0, end: 4.0,  text: "はじめに  暗闇が  あった…", sePlayed: false, type: "dark" },
+      { start: 4.0, end: 10.0, text: "あたたかな 霊気『火素』が 生まれ…", se: () => audio.playFireSE(), sePlayed: false, type: "fire" },
+      { start: 10.0, end: 16.0, text: "潤いの 霊気『水素』が 寄り添う…", se: () => audio.playWaterSE(), sePlayed: false, type: "water" },
+      { start: 16.0, end: 22.0, text: "大地を なす『土素』が 芽生えた…", se: () => audio.playEarthSE(), sePlayed: false, type: "earth" },
+      { start: 22.0, end: 28.0, text: "三大元素が 合わさり 『いのち』が 誕生した！", se: () => { audio.playFusionSE(); setTimeout(() => audio.playLifeFanfareSE(), 600); }, sePlayed: false, type: "fusion" },
+      { start: 28.0, end: 32.0, text: "いのちは 輝き  世界は 光に 包まれた", sePlayed: false, type: "epilogue" }
+    ];
+
+    // Text Typewriter State
+    let displayedCharCount = 0;
+    let lastTextBlipTime = 0;
+
+    /* --- Pixel Art Particle System --- */
+    const particles = [];
+    function createParticle(x, y, color, vx, vy, life) {
+      particles.push({ x, y, color, vx, vy, life, maxLife: life });
+    }
+
+    function updateParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 1;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(Math.floor(p.x), Math.floor(p.y), 2, 2);
+      });
+    }
+
+    /* --- Pixel Art Draw Helpers --- */
+
+    // Draw 8bit Flame Sprite
+    function drawFlameSprite(cx, cy, scale = 1, phase = 0) {
+      const flicker = Math.sin(phase * 8) * 2;
+      ctx.fillStyle = '#ff3300'; // Outer red
+      ctx.fillRect(cx - 8 * scale, cy - 10 * scale + flicker, 16 * scale, 20 * scale);
+      ctx.fillStyle = '#ff9900'; // Inner orange
+      ctx.fillRect(cx - 5 * scale, cy - 6 * scale + flicker, 10 * scale, 14 * scale);
+      ctx.fillStyle = '#ffff66'; // Core yellow
+      ctx.fillRect(cx - 2 * scale, cy - 2 * scale + flicker, 4 * scale, 8 * scale);
+
+      if (Math.random() < 0.4) {
+        createParticle(cx + (Math.random() - 0.5) * 12, cy, '#ffcc00', (Math.random() - 0.5) * 0.5, -1 - Math.random(), 20);
+      }
+    }
+
+    // Draw 8bit Water Sprite
+    function drawWaterSprite(cx, cy, scale = 1, phase = 0) {
+      const floatY = Math.sin(phase * 3) * 3;
+      ctx.fillStyle = '#0099ff'; // Water Blue
+      ctx.fillRect(cx - 7 * scale, cy - 7 * scale + floatY, 14 * scale, 14 * scale);
+      ctx.fillStyle = '#66ffff'; // Highlight Cyan
+      ctx.fillRect(cx - 4 * scale, cy - 5 * scale + floatY, 6 * scale, 6 * scale);
+      ctx.fillStyle = '#ffffff'; // Sparkle
+      ctx.fillRect(cx - 2 * scale, cy - 3 * scale + floatY, 2 * scale, 2 * scale);
+
+      if (Math.random() < 0.3) {
+        createParticle(cx + (Math.random() - 0.5) * 16, cy + 8, '#66ffff', (Math.random() - 0.5) * 0.4, 0.5, 25);
+      }
+    }
+
+    // Draw 8bit Earth Crystal Sprite
+    function drawEarthSprite(cx, cy, scale = 1, phase = 0) {
+      ctx.fillStyle = '#8b5a2b'; // Soil Brown
+      ctx.fillRect(cx - 12 * scale, cy + 4 * scale, 24 * scale, 8 * scale);
+      
+      // Green Crystal/Sprout
+      const pulse = Math.sin(phase * 4) * 1;
+      ctx.fillStyle = '#33cc33'; 
+      ctx.fillRect(cx - 5 * scale, cy - 8 * scale + pulse, 10 * scale, 12 * scale);
+      ctx.fillStyle = '#99ff66'; 
+      ctx.fillRect(cx - 2 * scale, cy - 6 * scale + pulse, 4 * scale, 8 * scale);
+
+      if (Math.random() < 0.2) {
+        createParticle(cx + (Math.random() - 0.5) * 20, cy + 4, '#99ff66', 0, -0.4, 30);
+      }
+    }
+
+    // Draw 8bit Life Heart/Tree Sprite (The Birth of Life)
+    function drawLifeSprite(cx, cy, scale = 1, phase = 0) {
+      const aura = Math.sin(phase * 5) * 3;
+      
+      // Radiant Aura Ring
+      ctx.fillStyle = '#ffff99';
+      ctx.fillRect(cx - (12 + aura) * scale, cy - (12 + aura) * scale, (24 + aura * 2) * scale, (24 + aura * 2) * scale);
+
+      // Main Heart/Tree Core
+      ctx.fillStyle = '#ff3366'; // Radiant Pink Heart
+      ctx.fillRect(cx - 8 * scale, cy - 8 * scale, 16 * scale, 16 * scale);
+      ctx.fillStyle = '#ffffff'; // High Brightness Inner
+      ctx.fillRect(cx - 4 * scale, cy - 4 * scale, 8 * scale, 8 * scale);
+
+      // Magical Radiant Particles
+      for (let i = 0; i < 2; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.5 + Math.random() * 1.2;
+        createParticle(
+          cx, cy,
+          ['#ff6699', '#66ffff', '#ffff66', '#a3e635'][Math.floor(Math.random() * 4)],
+          Math.cos(angle) * speed,
+          Math.sin(angle) * speed,
+          35
+        );
+      }
+    }
+
+    /* --- Dragon Quest Message Window Renderer --- */
+    function drawDQWindow(x, y, w, h, text) {
+      // Outer Double Border Frame
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+
+      // Draw Retro Pixel Text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px "DotGothic16", monospace';
+      ctx.textBaseline = 'top';
+
+      // Typewriter Effect Logic
+      const maxChars = Math.floor(text.length);
+      const visibleText = text.substring(0, displayedCharCount);
+
+      ctx.fillText(visibleText, x + 12, y + 10);
+
+      // Message Completion Indicator Arrow (Blinking)
+      if (displayedCharCount >= text.length && Math.floor(performance.now() / 400) % 2 === 0) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.moveTo(x + w - 16, y + h - 14);
+        ctx.lineTo(x + w - 8, y + h - 14);
+        ctx.lineTo(x + w - 12, y + h - 8);
+        ctx.fill();
+      }
+    }
+
+    /* --- Main Canvas Render Loop --- */
+    function render() {
+      // Clear Canvas Background (Dark Retro Sky)
+      ctx.fillStyle = '#0a0a14';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Background Pixel Stars
+      for (let i = 0; i < 20; i++) {
+        const sx = (i * 37 + 12) % 320;
+        const sy = (i * 19 + 7) % 150;
+        const starAlpha = Math.sin(currentTime * 2 + i) * 0.5 + 0.5;
+        ctx.fillStyle = `rgba(255, 255, 255, ${starAlpha})`;
+        ctx.fillRect(sx, sy, 1, 1);
+      }
+
+      // Determine Current Scene from Timeline
+      let currentScene = timelineData[0];
+      for (const scene of timelineData) {
+        if (currentTime >= scene.start) {
+          currentScene = scene;
+        }
+      }
+
+      // Play Scene Transition SE once
+      if (!currentScene.sePlayed && currentTime >= currentScene.start && isPlaying) {
+        currentScene.sePlayed = true;
+        if (currentScene.se) currentScene.se();
+      }
+
+      // Typewriter Sound & Progress Logic
+      if (currentScene) {
+        const sceneProgress = Math.min(1, (currentTime - currentScene.start) / 1.5);
+        const targetCharCount = Math.floor(sceneProgress * currentScene.text.length);
+
+        if (targetCharCount > displayedCharCount) {
+          displayedCharCount = targetCharCount;
+          if (performance.now() - lastTextBlipTime > 80 && isPlaying) {
+            audio.playTextBlip();
+            lastTextBlipTime = performance.now();
+          }
+        }
+      }
+
+      /* --- Draw Dynamic Visual Elements Based on Time --- */
+
+      // 1. Fire Element Stage (>= 4s)
+      if (currentTime >= 4.0) {
+        const fireAlpha = Math.min(1, (currentTime - 4.0));
+        ctx.globalAlpha = fireAlpha;
+        const posX = currentTime < 22.0 ? 70 : 160 - Math.cos((currentTime - 22) * 2) * 50;
+        const posY = currentTime < 22.0 ? 90 : 100 - Math.sin((currentTime - 22) * 2) * 50;
+        drawFlameSprite(posX, posY, 1.5, currentTime);
+        ctx.globalAlpha = 1.0;
+      }
+
+      // 2. Water Element Stage (>= 10s)
+      if (currentTime >= 10.0) {
+        const waterAlpha = Math.min(1, (currentTime - 10.0));
+        ctx.globalAlpha = waterAlpha;
+        const posX = currentTime < 22.0 ? 250 : 160 + Math.cos((currentTime - 22) * 2) * 50;
+        const posY = currentTime < 22.0 ? 90 : 100 + Math.sin((currentTime - 22) * 2) * 50;
+        drawWaterSprite(posX, posY, 1.5, currentTime);
+        ctx.globalAlpha = 1.0;
+      }
+
+      // 3. Earth Element Stage (>= 16s)
+      if (currentTime >= 16.0) {
+        const earthAlpha = Math.min(1, (currentTime - 16.0));
+        ctx.globalAlpha = earthAlpha;
+        // Ground Bed Line
+        ctx.fillStyle = '#3d2817';
+        ctx.fillRect(0, 150, 320, 20);
+        ctx.fillStyle = '#22c55e'; // Grass top
+        ctx.fillRect(0, 148, 320, 3);
+
+        const posX = currentTime < 22.0 ? 160 : 160;
+        const posY = currentTime < 22.0 ? 135 : 135 - Math.sin((currentTime - 22) * 3) * 20;
+        drawEarthSprite(posX, posY, 1.5, currentTime);
+        ctx.globalAlpha = 1.0;
+      }
+
+      // 4. Life Birth Stage (>= 22s)
+      if (currentTime >= 22.0) {
+        const lifeAlpha = Math.min(1, (currentTime - 22.0) / 2);
+        ctx.globalAlpha = lifeAlpha;
+        drawLifeSprite(160, 85, 1.8, currentTime);
+        ctx.globalAlpha = 1.0;
+      }
+
+      // Update & Draw Pixel Particles
+      updateParticles();
+      drawParticles();
+
+      // Render Dragon Quest Bottom Dialogue Box
+      if (currentScene) {
+        drawDQWindow(10, 175, 300, 55, currentScene.text);
+      }
+
+      // Scene Element Indicator Label (Top Right)
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '10px "DotGothic16", monospace';
+      ctx.textAlign = 'right';
+      const phaseNames = { dark: "【 序章 】", fire: "【 火素 】", water: "【 水素 】", earth: "【 土素 】", fusion: "【 融合 】", epilogue: "【 いのち 】" };
+      ctx.fillText(phaseNames[currentScene.type] || "", 310, 12);
+      ctx.textAlign = 'left';
+    }
+
+    /* --- Main Animation Tick Loop --- */
+    function animate(now) {
+      const dt = (now - lastFrameTime) / 1000;
+      lastFrameTime = now;
+
+      if (isPlaying) {
+        currentTime += dt;
+        
+        // Loop back upon reaching end
+        if (currentTime >= totalDuration) {
+          currentTime = 0;
+          resetSceneAudioState();
+        }
+
+        // Update UI Progress Bar
+        const seekBar = document.getElementById('seekBar');
+        seekBar.value = currentTime;
+        updateTimeDisplays();
+      }
+
+      render();
+      requestAnimationFrame(animate);
+    }
+
+    function resetSceneAudioState() {
+      timelineData.forEach(s => s.sePlayed = false);
+      displayedCharCount = 0;
+    }
+
+    function updateTimeDisplays() {
+      const format = (sec) => {
+        const m = Math.floor(sec / 60).toString().padStart(2, '0');
+        const s = Math.floor(sec % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+      };
+      document.getElementById('currentTimeText').innerText = format(currentTime);
+      document.getElementById('totalTimeText').innerText = format(totalDuration);
+    }
+
+    /* --- Event Listeners & Controls --- */
+
+    // Start Button (Unlocks Web Audio API)
+    document.getElementById('startButton').addEventListener('click', () => {
+      audio.init();
+      audio.startBGM();
+      isPlaying = true;
+      document.getElementById('startOverlay').classList.add('opacity-0', 'pointer-events-none');
+    });
+
+    // Play / Pause Toggle
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    playPauseBtn.addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      if (isPlaying) {
+        audio.startBGM();
+        playPauseBtn.innerText = "⏸ 一時停止";
+      } else {
+        audio.stopBGM();
+        playPauseBtn.innerText = "▶ 再生";
+      }
+    });
+
+    // Restart Button
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      currentTime = 0;
+      resetSceneAudioState();
+      document.getElementById('seekBar').value = 0;
+      updateTimeDisplays();
+      if (!isPlaying) {
+        isPlaying = true;
+        audio.startBGM();
+        playPauseBtn.innerText = "⏸ 一時停止";
+      }
+    });
+
+    // Seek Bar Scrubbing
+    const seekBar = document.getElementById('seekBar');
+    seekBar.addEventListener('input', (e) => {
+      currentTime = parseFloat(e.target.value);
+      resetSceneAudioState();
+      // Mark past sound effects as played so they don't trigger all at once
+      timelineData.forEach(s => {
+        if (currentTime > s.start) s.sePlayed = true;
+      });
+      updateTimeDisplays();
+    });
+
+    // Sound Toggle (Mute/Unmute)
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    soundToggleBtn.addEventListener('click', () => {
+      audio.isMuted = !audio.isMuted;
+      if (audio.isMuted) {
+        soundToggleBtn.innerText = "🔇 Sound: OFF";
+        soundToggleBtn.classList.replace('text-emerald-400', 'text-gray-400');
+      } else {
+        audio.isMuted = false;
+        soundToggleBtn.innerText = "🔊 BGM/SE: ON";
+        soundToggleBtn.classList.replace('text-gray-400', 'text-emerald-400');
+      }
+    });
+
+    // Handle Window Resize / Canvas Display Ratio
+    window.addEventListener('resize', () => {
+      ctx.imageSmoothingEnabled = false;
+    });
+
+    // Kick off animation loop
+    requestAnimationFrame(animate);
+
+  </script>
+  <!-- 更新した日時（GitHub に反映した日時が自動で出る）。開始ボタンの下にだけ小さく出す -->
+  <script>(function(){var d=new Date(document.lastModified);if(isNaN(d)||Math.abs(Date.now()-d)<5000)return;function p(n){return('0'+n).slice(-2);}
+var e=document.createElement('div');e.id='appVer';e.textContent='更新 '+d.getFullYear()+'/'+p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+e.style.cssText='display:block;width:100%;text-align:center;font:11px/1.4 sans-serif;color:inherit;opacity:.6;margin-top:8px;pointer-events:none;';
+var t=document.querySelector('#startButton');if(t)t.insertAdjacentElement('afterend',e);})();</script>
+</body>
+</html>
