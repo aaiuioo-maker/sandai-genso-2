@@ -93,9 +93,9 @@
       <!-- Progress Bar & Time Display -->
       <div class="flex items-center space-x-3">
         <span id="currentTimeText" class="text-amber-300 w-12 text-right">00:00</span>
-        <input type="range" id="seekBar" min="0" max="32" step="0.1" value="0"
+        <input type="range" id="seekBar" min="0" max="40" step="0.1" value="0"
                class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-amber-400">
-        <span id="totalTimeText" class="text-gray-400 w-12">00:32</span>
+        <span id="totalTimeText" class="text-gray-400 w-12">00:40</span>
       </div>
 
       <!-- Action Buttons Row -->
@@ -335,6 +335,19 @@
       }
 
       // Grand Life Birth Fanfare SE
+      // 結びの和音（ゆっくり上がって、長くのばす）
+      playEndingSE() {
+        if (this.isMuted || !this.ctx) return;
+        const arp = [261.63, 329.63, 392.00, 523.25];
+        arp.forEach((f, i) => setTimeout(() => this.playNote(f, 'triangle', 1.2, 0.10), i * 220));
+        setTimeout(() => {
+          [261.63, 329.63, 392.00, 523.25, 659.25].forEach(f => {
+            this.playNote(f, 'triangle', 3.2, 0.07);
+            this.playNote(f * 1.003, 'square', 2.4, 0.015);
+          });
+        }, arp.length * 220 + 100);
+      }
+
       playLifeFanfareSE() {
         if (this.isMuted || !this.ctx) return;
         const fanfare = [
@@ -361,7 +374,7 @@
 
     // App State
     let currentTime = 0; // In seconds (0 to 32s)
-    const totalDuration = 32.0;
+    const totalDuration = 40.0;
     let isPlaying = false;
     let lastFrameTime = performance.now();
 
@@ -373,7 +386,9 @@
       { start: 10.0, end: 16.0, text: "潤いの 霊気『水素』が 寄り添う…", say: "うるおいの、れいき、すいそが、寄り添う。", se: () => audio.playWaterSE(), sePlayed: false, type: "water" },
       { start: 16.0, end: 22.0, text: "大地を なす『土素』が 芽生えた…", say: "大地をなす、どそが、芽生えた。", se: () => audio.playEarthSE(), sePlayed: false, type: "earth" },
       { start: 22.0, end: 28.0, text: "三大元素が 合わさり 『いのち』が 誕生した！", say: "さんだいげんそが、合わさり、いのちが、誕生した！", se: () => { audio.playFusionSE(); setTimeout(() => audio.playLifeFanfareSE(), 600); }, sePlayed: false, type: "fusion" },
-      { start: 28.0, end: 32.0, text: "いのちは 輝き  世界は 光に 包まれた", say: "いのちは輝き、世界は、光に、包まれた。", sePlayed: false, type: "epilogue" }
+      { start: 28.0, end: 33.0, text: "いのちは 輝き  世界は 光に 包まれた", say: "いのちは輝き、世界は、光に、包まれた。", sePlayed: false, type: "epilogue" },
+      // 結び：光が画面いっぱいに広がり、「おわり」の画面で静かに終わる
+      { start: 33.0, end: 40.0, text: "", say: "", se: () => { audio.stopBGM(); setTimeout(() => audio.playEndingSE(), 300); }, sePlayed: false, type: "end" }
     ];
     // 読み上げにかかるおよその秒数（文字がこの速さで出る）
     timelineData.forEach(s => { s.sayDur = s.say.replace(/[、。！\s]/g, '').length * 0.17 + 0.3; });
@@ -421,7 +436,7 @@
     function enterScene(s) {
       s.sePlayed = true;
       if (s.se) s.se();
-      speak(s.say);
+      if (s.say) speak(s.say);
     }
 
     // Text Typewriter State
@@ -649,13 +664,65 @@
         ctx.globalAlpha = 1.0;
       }
 
+      // 5. 光が広がる（>= 28s）
+      if (currentTime >= 28.0) {
+        const k = Math.min(1, (currentTime - 28.0) / 6);
+        const pulse = Math.sin(currentTime * 4) * 3;
+        for (let i = 4; i >= 1; i--) {
+          const r = (20 + k * 190) * i / 4 + pulse;
+          ctx.globalAlpha = 0.10 + k * 0.08;
+          ctx.fillStyle = i % 2 ? '#fff1b0' : '#ffd84a';
+          ctx.fillRect(160 - r, 85 - r, r * 2, r * 2);
+        }
+        ctx.globalAlpha = 1.0;
+      }
+
       // Update & Draw Pixel Particles
       updateParticles();
       drawParticles();
 
       // Render Dragon Quest Bottom Dialogue Box
-      if (currentScene) {
+      if (currentScene && currentScene.type !== 'end') {
         drawDQWindow(10, 175, 300, 55, currentScene.text);
+      }
+
+      // 6. 画面が光に包まれ（33s〜）、「おわり」の画面になる（35.5s〜）
+      if (currentTime >= 33.0) {
+        ctx.globalAlpha = Math.min(1, (currentTime - 33.0) / 2);
+        ctx.fillStyle = '#fff8e0';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+      }
+      if (currentTime >= 35.5) {
+        const a = Math.min(1, (currentTime - 35.5) / 1.5);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#0a0a14';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < 30; i++) {
+          ctx.fillStyle = `rgba(255,255,255,${(Math.sin(currentTime * 2 + i) * 0.5 + 0.5) * a})`;
+          ctx.fillRect((i * 53 + 9) % 320, (i * 29 + 5) % 240, 1, 1);
+        }
+        // 火・水・土の小さな玉と、まんなかのいのち
+        ctx.fillStyle = '#ff6633'; ctx.fillRect(112, 62, 8, 8);
+        ctx.fillStyle = '#33aaff'; ctx.fillRect(200, 62, 8, 8);
+        ctx.fillStyle = '#55cc44'; ctx.fillRect(156, 30, 8, 8);
+        const g = Math.sin(currentTime * 3) * 2;
+        ctx.fillStyle = '#ffff99'; ctx.fillRect(148 - g, 54 - g, 24 + g * 2, 24 + g * 2);
+        ctx.fillStyle = '#ff3366'; ctx.fillRect(152, 58, 16, 16);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(156, 62, 8, 8);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fcd34d';
+        ctx.font = '20px "DotGothic16", monospace';
+        ctx.fillText('三大元素と いのち', 160, 122);
+        ctx.globalAlpha = Math.min(1, Math.max(0, (currentTime - 36.8) / 1.2));
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '14px "DotGothic16", monospace';
+        ctx.fillText('― おわり ―', 160, 160);
+        ctx.globalAlpha = 1.0;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        return;
       }
 
       // Scene Element Indicator Label (Top Right)
