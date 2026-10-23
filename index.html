@@ -98,24 +98,17 @@
         <span id="totalTimeText" class="text-gray-400 w-12">00:40</span>
       </div>
 
-      <!-- Action Buttons Row -->
-      <div class="flex items-center justify-between flex-wrap gap-2 pt-1">
-        
-        <div class="flex items-center space-x-2">
-          <button id="playPauseBtn" class="bg-gray-800 hover:bg-gray-700 text-amber-300 border border-gray-500 px-3 py-1.5 rounded active:scale-95 transition">
-            ⏸ 一時停止
-          </button>
-          <button id="restartBtn" class="bg-gray-800 hover:bg-gray-700 text-white border border-gray-500 px-3 py-1.5 rounded active:scale-95 transition">
-            🔄 最初から
-          </button>
-        </div>
-
-        <div class="flex items-center space-x-2">
-          <button id="soundToggleBtn" class="bg-gray-800 hover:bg-gray-700 text-emerald-400 border border-gray-500 px-3 py-1.5 rounded active:scale-95 transition">
-            🔊 声・音: ON
-          </button>
-        </div>
-
+      <!-- 操作ボタン：左から「最初から・再生・声と音」を横一列に。画面の幅に合わせて文字の大きさを変える -->
+      <div class="flex items-center gap-2 pt-1" style="font-size: clamp(11px, 3.3vw, 14px);">
+        <button id="restartBtn" class="bg-gray-800 hover:bg-gray-700 text-white border border-gray-500 py-1.5 rounded active:scale-95 transition" style="flex: 1 1 0; min-width: 0; white-space: nowrap; padding-left: 2px; padding-right: 2px;">
+          🔄 最初から
+        </button>
+        <button id="playPauseBtn" class="bg-gray-800 hover:bg-gray-700 text-amber-300 border border-gray-500 py-1.5 rounded active:scale-95 transition" style="flex: 1 1 0; min-width: 0; white-space: nowrap; padding-left: 2px; padding-right: 2px;">
+          ⏸ 一時停止
+        </button>
+        <button id="soundToggleBtn" class="bg-gray-800 hover:bg-gray-700 text-emerald-400 border border-gray-500 py-1.5 rounded active:scale-95 transition" style="flex: 1.25 1 0; min-width: 0; white-space: nowrap; padding-left: 2px; padding-right: 2px;">
+          🔊 声・音 ON
+        </button>
       </div>
 
     </div>
@@ -178,13 +171,75 @@
       }
 
       init() {
+        // iPhone の消音スイッチが入っていても声と音が出るようにする（声も音もすべて Web Audio で鳴らすので使える）
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
         if (!this.ctx) {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           this.ctx = new AudioContext();
+          // iPhone で音が止まったら、また鳴るようにする
+          this.ctx.onstatechange = () => { if (isPlaying && !this.isMuted && this.ctx.state !== 'running') try { this.ctx.resume(); } catch (e) {} };
         }
-        if (this.ctx.state === 'suspended') {
+        if (this.ctx.state !== 'running') {
           this.ctx.resume();
         }
+        timelineData.forEach((s, i) => koeDecode(i)); // 録音の声を先に準備しておく
+      }
+
+      /* --- 効果音の部品 --- */
+      // 音を1つ鳴らす（at 秒後に、len 秒。f2 があれば音の高さを f2 まで動かす）
+      tone(f, at, len, type, vol, f2) {
+        if (this.isMuted || !this.ctx) return;
+        try {
+          const o = this.ctx.createOscillator(), g = this.ctx.createGain(), t0 = this.ctx.currentTime + at;
+          o.type = type; o.frequency.setValueAtTime(f, t0);
+          if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + len);
+          g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + .01);
+          g.gain.exponentialRampToValueAtTime(.0001, t0 + len);
+          o.connect(g); g.connect(this.ctx.destination); o.start(t0); o.stop(t0 + len + .05);
+        } catch (e) {}
+      }
+      // ざわざわした音（風・炎・水しぶきなど）。up で「だんだん大きく」
+      noise(at, len, vol, freq, type = 'bandpass', up = 0) {
+        if (this.isMuted || !this.ctx) return;
+        try {
+          const b = this.ctx.createBuffer(1, this.ctx.sampleRate * len, this.ctx.sampleRate), d = b.getChannelData(0);
+          for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+          const s = this.ctx.createBufferSource(), g = this.ctx.createGain(), fl = this.ctx.createBiquadFilter(), t0 = this.ctx.currentTime + at;
+          fl.type = type; fl.frequency.value = freq;
+          g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + .02 + up * len);
+          g.gain.linearRampToValueAtTime(0, t0 + len);
+          s.buffer = b; s.connect(fl); fl.connect(g); g.connect(this.ctx.destination); s.start(t0);
+        } catch (e) {}
+      }
+
+      /* --- 場面ごとの効果音（iPhone のスピーカーでも聞こえるよう、高めの音を使う） --- */
+      // はじめに暗闇：ひゅう〜と風、遠くで低い鐘
+      playDarkSE() {
+        this.noise(.2, 2.4, .18, 700, 'bandpass', .5);
+        this.tone(220, .4, 2.2, 'triangle', .12, 180);
+        this.tone(330, .4, 2.2, 'sine', .05);
+      }
+      // 火素：ボウッと燃え上がって、パチパチ
+      playFireBurstSE() {
+        this.noise(0, .9, .3, 2500, 'highpass', .5);
+        this.tone(200, 0, .8, 'sawtooth', .05, 900);
+        for (let k = 0; k < 6; k++) this.noise(.6 + k * .17 + (k % 2) * .05, .05, .35, 3000, 'highpass');
+      }
+      // 水素：ポコポコと泡が上がって、さらさら流れる
+      playWaterFlowSE() {
+        [0, .22, .4, .62, .8].forEach((d, i) => this.tone(380 + i * 90, .1 + d, .16, 'sine', .12, 1000 + i * 150));
+        this.noise(.2, 1.6, .12, 1800, 'bandpass', .4);
+      }
+      // 土素：ドスンと大地、ぽこっと芽が出る
+      playEarthGrowSE() {
+        this.tone(180, 0, .5, 'triangle', .3, 60); this.tone(90, 0, .6, 'sine', .35, 45);
+        this.noise(0, .5, .25, 600, 'lowpass');
+        [0, .12, .24].forEach((d, i) => this.tone(520 + i * 260, .7 + d, .2, 'square', .05));
+      }
+      // 光に包まれる：キラキラと上がる
+      playShineSE() {
+        [72, 76, 79, 84, 88, 91, 96].forEach((n, i) => this.tone(440 * Math.pow(2, (n - 69) / 12), .2 + i * .14, .7, 'sine', .07));
+        this.noise(.2, 2, .08, 6000, 'highpass', .5);
       }
 
       // Play single synth pulse note
@@ -381,12 +436,12 @@
     // Scene Dialogue Timeline (~30s total)
     // say：女性の声で読み上げる文（読みにくい言葉はひらがな）
     const timelineData = [
-      { start: 0.0, end: 4.0,  text: "はじめに  暗闇が  あった…", say: "はじめに、暗闇が、あった。", sePlayed: false, type: "dark" },
-      { start: 4.0, end: 10.0, text: "あたたかな 霊気『火素』が 生まれ…", say: "あたたかな、れいき、かそが、生まれ、", se: () => audio.playFireSE(), sePlayed: false, type: "fire" },
-      { start: 10.0, end: 16.0, text: "潤いの 霊気『水素』が 寄り添う…", say: "うるおいの、れいき、すいそが、寄り添う。", se: () => audio.playWaterSE(), sePlayed: false, type: "water" },
-      { start: 16.0, end: 22.0, text: "大地を なす『土素』が 芽生えた…", say: "大地をなす、どそが、芽生えた。", se: () => audio.playEarthSE(), sePlayed: false, type: "earth" },
+      { start: 0.0, end: 4.0,  text: "はじめに  暗闇が  あった…", say: "はじめに、暗闇が、あった。", se: () => audio.playDarkSE(), sePlayed: false, type: "dark" },
+      { start: 4.0, end: 10.0, text: "あたたかな 霊気『火素』が 生まれ…", say: "あたたかな、れいき、かそが、生まれ、", se: () => { audio.playFireSE(); audio.playFireBurstSE(); }, sePlayed: false, type: "fire" },
+      { start: 10.0, end: 16.0, text: "潤いの 霊気『水素』が 寄り添う…", say: "うるおいの、れいき、すいそが、寄り添う。", se: () => { audio.playWaterSE(); audio.playWaterFlowSE(); }, sePlayed: false, type: "water" },
+      { start: 16.0, end: 22.0, text: "大地を なす『土素』が 芽生えた…", say: "大地をなす、どそが、芽生えた。", se: () => { audio.playEarthSE(); audio.playEarthGrowSE(); }, sePlayed: false, type: "earth" },
       { start: 22.0, end: 28.0, text: "三大元素が 合わさり 『いのち』が 誕生した！", say: "さんだいげんそが、合わさり、いのちが、誕生した！", se: () => { audio.playFusionSE(); setTimeout(() => audio.playLifeFanfareSE(), 600); }, sePlayed: false, type: "fusion" },
-      { start: 28.0, end: 33.0, text: "いのちは 輝き  世界は 光に 包まれた", say: "いのちは輝き、世界は、光に、包まれた。", sePlayed: false, type: "epilogue" },
+      { start: 28.0, end: 33.0, text: "いのちは 輝き  世界は 光に 包まれた", say: "いのちは輝き、世界は、光に、包まれた。", se: () => audio.playShineSE(), sePlayed: false, type: "epilogue" },
       // 結び：光が画面いっぱいに広がり、「ご視聴ありがとうございました」の画面で静かに終わる
       { start: 33.0, end: 40.0, text: "", say: "", se: () => { audio.stopBGM(); setTimeout(() => audio.playEndingSE(), 300); }, sePlayed: false, type: "end" }
     ];
@@ -415,21 +470,53 @@
     }
     let voice = null, speaking = false, curUtter = null, speakStartAt = 0;
     if (ttsOK) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => { voice = pickVoice(); }; } catch (e) {} }
+
+    /* --- ナレーション：パソコンの Haruka の声で録音した音（koe/00.wav〜05.wav）を流す ---
+       iPhone の読み上げ機能を使うと、読む間は音楽・効果音が止まってしまうため、声も Web Audio で鳴らす。
+       録音が読めないときだけ端末の声で読み上げる。say の文を変えたら録音し直すこと */
+    const KOE_V = 1;
+    const koeRaw = timelineData.map((s, i) => s.say
+      ? fetch('koe/' + String(i).padStart(2, '0') + '.wav?v=' + KOE_V).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null)
+      : Promise.resolve(null));
+    const koeBuf = [];
+    function koeDecode(i) {
+      if (!koeBuf[i]) koeBuf[i] = koeRaw[i].then(ab => ab && audio.ctx && new Promise(res => {
+        try { audio.ctx.decodeAudioData(ab, b => res(b), () => res(null)); } catch (e) { res(null); }
+      }));
+      return koeBuf[i];
+    }
+    let koeSrc = null;
     function speak(text) {
+      stopSpeak();
       speakStartAt = performance.now();
-      if (!ttsOK || audio.isMuted) { speaking = false; return; }
+      if (audio.isMuted || !text) return;
+      const i = timelineData.findIndex(s => s.say === text);
+      const token = {}; curUtter = token; speaking = true;
+      if (!audio.ctx || i < 0) { speakTTS(text, token); return; }
+      koeDecode(i).then(b => {
+        if (curUtter !== token) return; // もう別の場面に進んだ・止めた
+        if (!b) { speakTTS(text, token); return; }
+        const s = audio.ctx.createBufferSource(); s.buffer = b;
+        s.connect(audio.ctx.destination);
+        s.onended = () => { if (curUtter === token) speaking = false; };
+        koeSrc = s; s.start();
+      });
+    }
+    // 録音が使えないときの予備：端末の女性の声で読み上げる
+    let lastUtter = null;
+    function speakTTS(text, token) {
+      if (!ttsOK) { speaking = false; return; }
       try {
-        speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'ja-JP'; u.rate = 0.9; u.pitch = 1.1; u.volume = 1;
         voice = voice || pickVoice(); if (voice) u.voice = voice;
-        speaking = true;
-        u.onend = u.onerror = () => { if (u === curUtter) speaking = false; };
-        curUtter = u; speechSynthesis.speak(u);
+        u.onend = u.onerror = () => { if (curUtter === token) speaking = false; };
+        lastUtter = u; speechSynthesis.speak(u);
       } catch (e) { speaking = false; }
     }
     function stopSpeak() {
       speaking = false; curUtter = null;
+      if (koeSrc) { try { koeSrc.onended = null; koeSrc.stop(); } catch (e) {} koeSrc = null; }
       if (ttsOK) try { speechSynthesis.cancel(); } catch (e) {}
     }
     // 場面に入ったときの効果音と読み上げ
@@ -850,11 +937,11 @@
       audio.isMuted = !audio.isMuted;
       if (audio.isMuted) {
         stopSpeak();
-        soundToggleBtn.innerText = "🔇 Sound: OFF";
+        soundToggleBtn.innerText = "🔇 声・音 OFF";
         soundToggleBtn.classList.replace('text-emerald-400', 'text-gray-400');
       } else {
         audio.isMuted = false;
-        soundToggleBtn.innerText = "🔊 声・音: ON";
+        soundToggleBtn.innerText = "🔊 声・音 ON";
         soundToggleBtn.classList.replace('text-gray-400', 'text-emerald-400');
       }
     });
