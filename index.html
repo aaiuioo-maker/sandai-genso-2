@@ -440,8 +440,8 @@
       { start: 4.0, end: 10.0, text: "あたたかな 霊気『火素』が 生まれ…", say: "あたたかな、れいき、かそが、生まれ、", se: () => { audio.playFireSE(); audio.playFireBurstSE(); }, sePlayed: false, type: "fire" },
       { start: 10.0, end: 16.0, text: "潤いの 霊気『水素』が 寄り添う…", say: "うるおいの、れいき、すいそが、寄り添う。", se: () => { audio.playWaterSE(); audio.playWaterFlowSE(); }, sePlayed: false, type: "water" },
       { start: 16.0, end: 22.0, text: "大地を なす『土素』が 芽生えた…", say: "大地をなす、どそが、芽生えた。", se: () => { audio.playEarthSE(); audio.playEarthGrowSE(); }, sePlayed: false, type: "earth" },
-      { start: 22.0, end: 28.0, text: "三大元素が 合わさり 『いのち』が 誕生した！", say: "さんだいげんそが、合わさり、いのちが、誕生した！", se: () => { audio.playFusionSE(); setTimeout(() => audio.playLifeFanfareSE(), 600); }, sePlayed: false, type: "fusion" },
-      { start: 28.0, end: 33.0, text: "いのちは 輝き  世界は 光に 包まれた", say: "いのちは輝き、世界は、光に、包まれた。", se: () => audio.playShineSE(), sePlayed: false, type: "epilogue" },
+      { start: 22.0, end: 28.0, text: "三大元素が 合わさり 『いのち』が 誕生した！", say: "さんだいげんそが、あわさり、いのちが、誕生した！", se: () => { audio.playFusionSE(); setTimeout(() => audio.playLifeFanfareSE(), 600); }, sePlayed: false, type: "fusion" },
+      { start: 28.0, end: 33.0, text: "いのちは 輝き  世界は 光に 包まれた", say: "いのちは輝き、世界は、光に、つつまれた。", se: () => audio.playShineSE(), sePlayed: false, type: "epilogue" },
       // 結び：光が画面いっぱいに広がり、「ご視聴ありがとうございました」の画面で静かに終わる
       { start: 33.0, end: 40.0, text: "", say: "", se: () => { audio.stopBGM(); setTimeout(() => audio.playEndingSE(), 300); }, sePlayed: false, type: "end" }
     ];
@@ -474,7 +474,7 @@
     /* --- ナレーション：パソコンの Haruka の声で録音した音（koe/00.wav〜05.wav）を流す ---
        iPhone の読み上げ機能を使うと、読む間は音楽・効果音が止まってしまうため、声も Web Audio で鳴らす。
        録音が読めないときだけ端末の声で読み上げる。say の文を変えたら録音し直すこと */
-    const KOE_V = 1;
+    const KOE_V = 2;
     const koeRaw = timelineData.map((s, i) => s.say
       ? fetch('koe/' + String(i).padStart(2, '0') + '.wav?v=' + KOE_V).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null)
       : Promise.resolve(null));
